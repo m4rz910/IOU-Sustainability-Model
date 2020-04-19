@@ -10,6 +10,7 @@ from model import Fuzzification, InferenceEngine
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 plt.rcParams['font.weight'] = 'bold'
 plt.rcParams['font.size'] = 12
@@ -44,27 +45,30 @@ struct = {'wealth':{
                    }
          }
 
-def basic_to_secondary(year, sensitivity_ind, delta):
+def basic_to_secondary(year, delta, sensitivity_ind=None):
     print('Starting Basic -> Secondary')
     for primary_indicator in struct.keys():
         frames = []
         for secondary_indicator in struct[primary_indicator]:
-            print('{}-{}'.format(primary_indicator, secondary_indicator))
+            #print('{}-{}'.format(primary_indicator, secondary_indicator))
             frames.append(Fuzzification.main(primary_indicator=primary_indicator,
+                                             secondary_indicator=secondary_indicator,
                                              basic_indicators=struct[primary_indicator][secondary_indicator],
                                              indicator_type='basic',
                                              year=year,
                                              sensitivity_ind=sensitivity_ind,
                                              delta=delta))
         secondary_agg = pd.concat(frames).reset_index(drop=True)
-        secondary_agg.to_csv('./outputs/annuals/{}_{}_secondary_agg.csv'.format(year,primary_indicator),index=False)
+        out_file = os.path.join(annuals_dir,'{}_{}_{}_{}_secondary_agg.csv'.format(delta,sensitivity_ind, year,primary_indicator))
+        secondary_agg.to_csv(out_file,index=False)
         
-def secondary_to_primary(year):
+def secondary_to_primary(year, delta, sensitivity_ind=None):
     print('Starting Secondary -> Primary')
     frames2=[]
     for primary_ind_name in struct.keys():
-        print(primary_ind_name)
-        secondary_agg = pd.read_csv('./outputs/annuals/{}_{}_secondary_agg.csv'.format(year,primary_ind_name))
+        #print(primary_ind_name)
+        in_file = os.path.join(annuals_dir,'{}_{}_{}_{}_secondary_agg.csv'.format(delta,sensitivity_ind, year,primary_ind_name))
+        secondary_agg = pd.read_csv(in_file)
         indicator_type = 'secondary'
         #INFERENCE
         frames=[]
@@ -76,11 +80,15 @@ def secondary_to_primary(year):
         primary = pd.DataFrame(frames)
         frames2.append(primary)
     primary_agg = pd.concat(frames2)
-    primary_agg.to_csv('./outputs/annuals/{}_primary_agg.csv'.format(year),index=False)
+    
+    out_file = os.path.join(annuals_dir,'{}_{}_{}_primary_agg.csv'.format(delta,sensitivity_ind,year))           
+    primary_agg.to_csv(out_file,index=False)
 
-def primary_to_osus(year): 
+def primary_to_osus(year, delta, sensitivity_ind=None): 
     print('Starting Primary  -> OSUS')
-    primary_agg = pd.read_csv('./outputs/annuals/{}_primary_agg.csv'.format(year))
+    in_file = os.path.join(annuals_dir,'{}_{}_{}_primary_agg.csv'.format(delta,sensitivity_ind, year))
+    primary_agg = pd.read_csv(in_file)
+    
     osus_ind_name = 'osus'
     indicator_type = 'primary'
     #INFERENCE
@@ -91,11 +99,14 @@ def primary_to_osus(year):
         s_indicators = [company_year[company_year[indicator_type]==indicator].iloc[0] for indicator in primary_agg[indicator_type].unique()]
         frames.append(InferenceEngine.s_p(s_indicators,osus_ind_name,indicator_type)) #apply inference engine
     osus = pd.DataFrame(frames)
-    osus.to_csv('./outputs/annuals/{}_osus_fuzz.csv'.format(year),index=False)
     
-def defuzzification(year):
-    print('Defuzzification')
-    osus = pd.read_csv('./outputs/annuals/{}_osus_fuzz.csv'.format(year))
+    out_file = os.path.join(annuals_dir,'{}_{}_{}_osus_fuzz.csv'.format(delta,sensitivity_ind,year))      
+    osus.to_csv(out_file, index=False)
+    
+def defuzzification(year, delta, sensitivity_ind=None):
+    print('Defuzzifing')
+    in_file = os.path.join(annuals_dir,'{}_{}_{}_osus_fuzz.csv'.format(delta,sensitivity_ind,year))   
+    osus = pd.read_csv(in_file)
     elvllflifhhvheh = Fuzzification.elvllflifhhvheh()
     osus['crisp']= (elvllflifhhvheh['el'].idxmax()*osus['el'] +
                     elvllflifhhvheh['vl'].idxmax()*osus['vl'] + 
@@ -107,27 +118,32 @@ def defuzzification(year):
                     elvllflifhhvheh['vh'].idxmax()*osus['vh'] + 
                     elvllflifhhvheh['eh'].idxmax()*osus['eh'])/osus[['el','vl','l','fl','i','fh','h','vh','eh']].sum(axis='columns')
     crisp = osus[['company','year','crisp']]
-    crisp.to_csv('./outputs/annuals/{}_osus_crisp.csv'.format(year),index=False)
+    
+    out_file = os.path.join(annuals_dir,'{}_{}_{}_osus_crisp.csv'.format(delta,sensitivity_ind,year)) 
+    crisp.to_csv(out_file, index=False)
 
-def generate_time_series_plot(years = range(2014,2019)):
+def generate_time_series_plot(years = range(2014,2019), delta=0):
     print('GENERATING TIME SERIES CHART')
-    frames = [pd.read_csv('./outputs/annuals/{}_osus_crisp.csv'.format(year)) for year in years]
+    frames = [pd.read_csv(os.path.join(annuals_dir,'{}_{}_{}_osus_crisp.csv'.format(delta,None,year))) for year in years]
     osus = pd.concat(frames).set_index('year',drop=True)
     osus.index= pd.to_datetime(osus.index.astype(str), format='%Y')
     fig, ax = plt.subplots(figsize=(8,4))
     for idx, gp in osus.groupby('company'):
         gp.plot(ax=ax,label=idx)
     plt.grid(); plt.xlabel('Year'); plt.ylabel('OSUS');plt.legend(osus.groupby('company').indices)
-    fig.savefig('./outputs/final_chart_output.png', dpi=300, bbox_inches='tight')
+    
+    out_file = os.path.join(pkg_dir,'outputs/final_chart_output.png') 
+    fig.savefig(out_file, dpi=300, bbox_inches='tight')
 
 def run_model(years = range(2014,2019), sensitivity_ind=None, delta=0):    
     print('\n'); print('RUNNING MODEL')
     for year in years: 
         print(year)
         basic_to_secondary(year, sensitivity_ind=sensitivity_ind, delta=delta)
-        secondary_to_primary(year)
-        primary_to_osus(year)
-        defuzzification(year)
+        secondary_to_primary(year, sensitivity_ind=sensitivity_ind, delta=delta)
+        primary_to_osus(year, sensitivity_ind=sensitivity_ind, delta=delta)
+        defuzzification(year, sensitivity_ind=sensitivity_ind, delta=delta)
+    print('MODEL RUN COMPLETE')
     
 def run_sensitivity_analysis(sensitivity_year = [2018]):
     """
@@ -142,15 +158,70 @@ def run_sensitivity_analysis(sensitivity_year = [2018]):
     
     for delta in [-0.1, 0.1]: # normalized number purturbation
         for sensitivity_ind in basic_indicator_list:
-            run_model(years = sensitivity_year, sensitivity_ind = sensitivity_ind, delta=delta)
+            run_model(years = sensitivity_year, sensitivity_ind = sensitivity_ind, delta = delta)
+
+def sensitivity_compile_results(sensitivity_year = [2018]):
+    basic_indicator_list = [] #get a list of the basic indicators
+    frames = []
+    for key in struct.keys():
+        for key2 in struct[key].keys():
+             basic_indicator_list =  basic_indicator_list + list(struct[key][key2].keys())
+             
+             normalized = pd.read_csv(os.path.join(annuals_dir,'{}_{}_{}_intensive_normalized_basic_indicators.csv'.format(0,
+                                                   key,
+                                                   key2)))
+             frames.append(normalized)
+    df = pd.concat(frames)
+    df = df[df['year']==sensitivity_year[0]]
+    df.rename(columns={"basic": "sensitivity_ind"}, inplace=True)    
+         
+    frames =[]         
+    for sensitivity_ind in basic_indicator_list:
+        
+        #crisp values    
+        base = pd.read_csv(os.path.join(annuals_dir,'{}_{}_{}_osus_crisp.csv'.format(0,
+                                                                                     'None',
+                                                                                     sensitivity_year[0])))        
+        for delta in [-0.1,0.1]:
+            pert = pd.read_csv(os.path.join(annuals_dir,'{}_{}_{}_osus_crisp.csv'.format(delta,
+                                                                                     sensitivity_ind,
+                                                                                     sensitivity_year[0])))
+            base[delta] = pert['crisp']
+            
+        base['sensitivity_ind'] = sensitivity_ind
+        frames.append(base)
+    df2 = pd.concat(frames)
     
+    df3 = pd.merge(left=df2,right=df,on=['sensitivity_ind','company','year'])
+    df3['D_h'] = abs( (1-df3['index']) * (df3[0.1]-df3['crisp']) )
+    df3['D_l'] = abs( (1-df3['index']) * (df3[-0.1]-df3['crisp']))
+    df3['D'] = df3[['D_h', 'D_l']].max(axis=1)
     
+    frames = []
+    for idx, gp in df3.groupby('company'):
+        gp['D_rank'] = gp['D'].rank(ascending=False)
+        frames.append(gp)   
+    df = pd.concat(frames)
+    df.to_csv(os.path.join(annuals_dir,'sensitivity_analysis_rank_stats.csv'))
+    
+    #create statistical plot
+    summ = df[(df['D_rank'] == 1) | (df['D_rank'] == 2) | (df['D_rank'] == 3)].sort_values(by=['D_rank'])
+    return df
+
+pkg_dir = 'C:\\Users\\tzave\\OneDrive - The Cooper Union for the Advancement of Science and Art\\102-cooper\\150-masters\\sustainability\\sustainability_project1\\IOU-Sustainability-Model'
+
+annuals_dir = os.path.join(pkg_dir, 'outputs\\annuals')
+if not os.path.exists(annuals_dir): os.makedirs(annuals_dir)
+
+norm_dir = os.path.join(pkg_dir, 'outputs/normalization_curves')
+if not os.path.exists(norm_dir): os.makedirs(norm_dir)
+
 if __name__ == '__main__':
     #Fuzzification.create_normalization_curves(struct)
-    
-    run_sensitivity_analysis()
-    
+       
     #run_model()
     #generate_time_series_plot()
     
+    #run_sensitivity_analysis()
+    sensitivity_compile_results()
     print('COMPLETED')

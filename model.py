@@ -1,14 +1,18 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import os 
 
 dx = 0.001 # dx for linguistic variable function
 nd = 3
-    
+
+pkg_dir = 'C:\\Users\\tzave\\OneDrive - The Cooper Union for the Advancement of Science and Art\\102-cooper\\150-masters\\sustainability\\sustainability_project1\\IOU-Sustainability-Model'
+
+  
 class Fuzzification:
 
     @classmethod
-    def main(cls,primary_indicator,basic_indicators,indicator_type,year, sensitivity_ind, delta):       
+    def main(cls,primary_indicator,secondary_indicator, basic_indicators,indicator_type,year, sensitivity_ind, delta):       
         
         wms = cls.wms()
         pi_db = pd.read_excel('./databases/indicator_db.xlsx', sheet_name=primary_indicator).round(nd)
@@ -35,6 +39,8 @@ class Fuzzification:
             assert df_base.shape[0] == df_out.shape[0], 'different amount of rows, error'
             frames.append(df_out)
         fuzz = pd.concat(frames).reset_index(drop=True)
+        if year == 2018: #only have to do this once
+            fuzz.to_csv('./outputs/annuals/{}_{}_{}_intensive_normalized_basic_indicators.csv'.format(delta, primary_indicator, secondary_indicator))
         
         #INFERENCE
         frames=[]
@@ -105,6 +111,15 @@ class Fuzzification:
             raise NameError('Not a recognized norm_type')
         return x
     
+    @classmethod
+    def create_linguistic_variables(cls):
+        ling_dir = os.path.join(pkg_dir, 'outputs/linguistic_variables')
+        if not os.path.exists(ling_dir): os.makedirs(ling_dir)
+        
+        cls.wms().to_csv(os.path.join(ling_dir,'wms.csv'))
+        cls.vbbagvg().to_csv(os.path.join(ling_dir,'vbbagvg.csv'))
+        cls.elvllflifhhvheh().to_csv(os.path.join(ling_dir,'elvllflifhhvheh.csv'))    
+        
     @classmethod
     def trapezoid(cls,z,c_l,tc,Tc,c_u):
         """
@@ -240,8 +255,7 @@ class InferenceEngine:
         s['year'] = secondary_ind_year
         s['company'] = secondary_ind_company
         return s
-    
-    
+       
     @classmethod
     def b_s(cls,basic_indicators):
         """
