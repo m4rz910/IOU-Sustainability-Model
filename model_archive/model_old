@@ -1,0 +1,254 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+class Fuzzification:
+    dx = 0.001 # dx for linguistic variable function
+    nd = 3
+    #N = 1000
+    
+    @staticmethod
+    def norm_type(iv,typeofnorm,discourse):
+        
+        if typeofnorm == 'lower_is_better':
+            x = Fuzzification.trapezoid(z= discourse,
+                                        c_l=iv.min(),
+                                        tc=iv.mean(),
+                                        Tc=iv.mean(),
+                                        c_u=iv.max());
+    
+        elif typeofnorm == 'middle_is_better':
+            x = Fuzzification.trapezoid(z= discourse,
+                                        c_l=iv.min(),
+                                        tc=iv.mean(),
+                                        Tc=iv.mean(),
+                                        c_u=iv.max());
+            
+        elif typeofnorm == 'higher_is_better':
+            x = Fuzzification.trapezoid(z=discourse,
+                                        c_l=iv.min(),
+                                        tc=iv.max(),
+                                        Tc=iv.max(),
+                                        c_u=iv.max())
+        else:
+            raise 'Error'
+        return x
+    
+    @classmethod
+    def trapezoid(cls,z,c_l,tc,Tc,c_u):
+        """
+        Trapezoid function that can be used to create linguistic values or normalization curves.
+        
+        Rule #1 of Fuzzy System: Completeness of Inputs - Make sure z covers the full universe of discourse.
+        """
+#         assert c_l<=tc, 'input values dont make sense for trapezoid'
+#         assert tc<=Tc, 'input values dont make sense for trapezoid'
+#         assert Tc<=c_u, 'input values dont make sense for trapezoid'
+        
+        if (c_l==tc) and (c_l==Tc): # DECREASING LINE
+            #print('decreasing line')
+            out = np.piecewise(z,
+                               [z<c_l, z>c_u, (z>=Tc)&(z<=c_u)],
+                               [0    , 0    , lambda z: (c_u-z)/(c_u-Tc)])
+            
+        elif (c_u==tc) and (c_u==Tc): # INCREASING LINE
+            #print('increasing line')
+            out = np.piecewise(z,
+                               [z<c_l, z>c_u, (z>=c_l)&(z<=tc)],
+                               [0    , 0    , lambda z: (z-c_l)/(tc-c_l)])
+
+        else: # TRAPEZOID AND TRIANGLE
+            #print('trapezoid')
+            out = np.piecewise(z,
+                               [z<=c_l, z>=c_u, (z>c_l)&(z<tc)          , (z>=tc)&(z<=Tc), (z>Tc)&(z<c_u)],
+                               [0    , 0    , lambda z: (z-c_l)/(tc-c_l), 1            , lambda z: (c_u-z)/(c_u-Tc)])
+        out = out.round(cls.nd) #getrid of annoying decimals
+        return out 
+    
+    @classmethod
+    def wms(cls):
+        """
+        Linguistic Variable WMS
+        """
+        x= np.arange(0,1+cls.dx,cls.dx).round(cls.nd)
+        #x = np.linspace(0,1,cls.N,endpoint=True)
+        medium_val = 0.7 # or 0.6?
+        df = pd.DataFrame(data = {'w':Fuzzification.trapezoid(x,0,0,0,medium_val),
+                                  'm':Fuzzification.trapezoid(x,0,medium_val,medium_val,1),
+                                  's':Fuzzification.trapezoid(x,medium_val,1,1,1)},
+                          index = x)
+        Fuzzification.check_ruspini_partition(df)
+        Fuzzification.check_consistency(df)
+        return df.round(cls.nd)
+    
+    @classmethod
+    def vbbagvg(cls):
+        """
+        Linguistic Variable VBBAGVG
+        """
+        x=np.arange(0,1+cls.dx,cls.dx).round(cls.nd)
+        #x = np.linspace(0,1,cls.N,endpoint=True)
+        df = pd.DataFrame(data = {'vb':Fuzzification.trapezoid(x,0,0,0,0.25),
+                                  'b' :Fuzzification.trapezoid(x,0,0.25,0.25,0.5),
+                                  'a' :Fuzzification.trapezoid(x,0.25,0.5,0.5,0.75),
+                                  'g' :Fuzzification.trapezoid(x,0.5,0.75,0.75,1),
+                                  'vg':Fuzzification.trapezoid(x,0.75,1,1,1)},
+                          index = x)
+        Fuzzification.check_ruspini_partition(df)
+        Fuzzification.check_consistency(df)
+        return df.round(cls.nd)
+    
+    @staticmethod
+    def check_ruspini_partition(df):
+        """
+        Special case of Rule #2 of Fuzzy System: Consistency of Unions for WMS and VBBAGVG
+        """
+        assert any(df.sum(axis='columns').apply(lambda x: round(x,2)==1)) == True , 'Ruspini Partition Not Satisfied'
+    
+    @staticmethod
+    def check_consistency(df):
+        """
+        Rule #2 of Fuzzy System: Consistency of Unions - for any input, the membership functions of all the fuzzy sets it belongs too should be less than or equal to 1.
+        """
+        assert any(df.sum(axis='columns').apply(lambda x: round(x,2)<=1)) == True , 'Not Consistent'
+
+
+class InferenceEngine:
+    dx = 0.01 # dx for linguistic variable function
+    nd = 2
+    
+    @staticmethod
+    def osus():
+        return None
+    
+    @staticmethod
+    def defuzzification():
+        return None
+    
+    #primary indicators
+    
+    #secondary indicators
+    
+    #basic indicators
+    @classmethod
+    def b_s(cls,basic_indicators):
+        """
+        BASIC TO SECONDARY INFERENCE ENGINE
+
+        *** ONLY FOR 2 BASIC INDICATOR INPUTS
+        """
+        #checks
+        assert all(i['company']==basic_indicators[0]['company'] for i in basic_indicators), 'basic indicators included dont have the same secondary indicator'
+        secondary_ind_company = basic_indicators[0]['company']     
+
+        assert all(i['secondary']==basic_indicators[0]['secondary'] for i in basic_indicators), 'basic indicators included dont have the same secondary indicator'
+        secondary_ind_name = basic_indicators[0]['secondary'] #status
+
+        assert all(i['year']==basic_indicators[0]['year'] for i in basic_indicators), 'basic indicators included dont have the same year'
+        secondary_ind_year = basic_indicators[0]['year']
+
+        #search the rule base for the secondary indicator
+        rb = pd.read_excel('./databases/rulebase.xlsx', sheet_name=secondary_ind_name,skiprows=9)
+        lval = []
+        indices = []
+        
+        if len(basic_indicators)==2: #if there are two basic indicators
+            for in1_lv in ['w','m','s']:
+                for in2_lv in ['w','m','s']:
+                    lval.append(basic_indicators[0][in1_lv] * basic_indicators[1][in2_lv]) #LARSEN IMPLICATIONsensitive to the number of indicators
+                    rule = rb[(rb[basic_indicators[0]['basic']] == in1_lv) &
+                              (rb[basic_indicators[1]['basic']] == in2_lv)] #selecting the right row from the rulebase, sensitive to the number of indicators
+                    indices.append(rule[secondary_ind_name].iloc[0]) #
+                    
+        if len(basic_indicators)==3: #if there are three basic indicators
+            for in1_lv in ['w','m','s']:
+                for in2_lv in ['w','m','s']:
+                    for in3_lv in ['w','m','s']:
+                        lval.append(basic_indicators[0][in1_lv] * basic_indicators[1][in2_lv] * basic_indicators[2][in3_lv]) #LARSEN IMPLICATIONsensitive to the number of indicators
+                        rule = rb[(rb[basic_indicators[0]['basic']] == in1_lv) &
+                                  (rb[basic_indicators[1]['basic']] == in2_lv) &
+                                  (rb[basic_indicators[2]['basic']] == in3_lv)] #selecting the right row from the rulebase, sensitive to the number of indicators
+                        indices.append(rule[secondary_ind_name].iloc[0]) #            
+                
+        s = pd.Series(data=lval,
+                      index=indices).round(cls.nd)
+        s = s.groupby(s.index).sum() #add up all similar vals
+
+        s['secondary'] = secondary_ind_name
+        s['year'] = secondary_ind_year
+        s['company'] = secondary_ind_company
+        return s[['secondary','company','year','vb','b','a','g','vg']]
+    
+    @classmethod
+    def b2__s(cls,basic_indicators):
+        """
+        BASIC TO SECONDARY INFERENCE ENGINE
+
+        *** ONLY FOR 2 BASIC INDICATOR INPUTS
+        """
+        #checks
+        assert all(i['company']==basic_indicators[0]['company'] for i in basic_indicators), 'basic indicators included dont have the same secondary indicator'
+        secondary_ind_company = basic_indicators[0]['company']     
+
+        assert all(i['secondary']==basic_indicators[0]['secondary'] for i in basic_indicators), 'basic indicators included dont have the same secondary indicator'
+        secondary_ind_name = basic_indicators[0]['secondary'] #status
+
+        assert all(i['year']==basic_indicators[0]['year'] for i in basic_indicators), 'basic indicators included dont have the same year'
+        secondary_ind_year = basic_indicators[0]['year']
+
+        #search the rule base for the secondary indicator
+        rb = pd.read_excel('./databases/rulebase.xlsx', sheet_name=secondary_ind_name,skiprows=9)
+        lval = []
+        indices = []
+        for in1_lv in ['w','m','s']:
+            for in2_lv in ['w','m','s']:
+                lval.append(basic_indicators[0][in1_lv] * basic_indicators[1][in2_lv]) #LARSEN IMPLICATIONsensitive to the number of indicators
+                rule = rb[(rb[basic_indicators[0]['basic']] == in1_lv) &
+                          (rb[basic_indicators[1]['basic']] == in2_lv)] #selecting the right row from the rulebase, sensitive to the number of indicators
+                indices.append(rule[secondary_ind_name].iloc[0]) #
+        s = pd.Series(data=lval,
+                      index=indices).round(cls.nd)
+        s = s.groupby(s.index).sum() #add up all similar vals
+
+        s['secondary'] = secondary_ind_name
+        s['year'] = secondary_ind_year
+        s['company'] = secondary_ind_company
+        return s[['secondary','company','year','vb','b','a','g','vg']]
+    
+    @classmethod
+    def b3__s(cls,basic_indicators):
+        """
+        BASIC TO SECONDARY INFERENCE ENGINE
+
+        *** ONLY FOR 3 BASIC INDICATOR INPUTS
+        """
+        #checks
+        assert all(i['company']==basic_indicators[0]['company'] for i in basic_indicators), 'basic indicators included dont have the same secondary indicator'
+        secondary_ind_company = basic_indicators[0]['company']     
+
+        assert all(i['secondary']==basic_indicators[0]['secondary'] for i in basic_indicators), 'basic indicators included dont have the same secondary indicator'
+        secondary_ind_name = basic_indicators[0]['secondary'] #status
+
+        assert all(i['year']==basic_indicators[0]['year'] for i in basic_indicators), 'basic indicators included dont have the same year'
+        secondary_ind_year = basic_indicators[0]['year']
+
+        #search the rule base for the secondary indicator
+        rb = pd.read_excel('./databases/rulebase.xlsx', sheet_name=secondary_ind_name,skiprows=9)
+        lval = []
+        indices = []
+        for in1_lv in ['w','m','s']:
+            for in2_lv in ['w','m','s']:
+                for in3_lv in ['w','m','s']:
+                    lval.append(basic_indicators[0][in1_lv] * basic_indicators[1][in2_lv] * basic_indicators[2][in3_lv]) #LARSEN IMPLICATIONsensitive to the number of indicators
+                    rule = rb[(rb[basic_indicators[0]['basic']] == in1_lv) &
+                              (rb[basic_indicators[1]['basic']] == in2_lv) &
+                              (rb[basic_indicators[2]['basic']] == in3_lv)] #selecting the right row from the rulebase, sensitive to the number of indicators
+                    indices.append(rule[secondary_ind_name].iloc[0]) #
+        s = pd.Series(data=lval,
+                      index=indices).round(cls.nd)
+        s = s.groupby(s.index).sum() #add up all similar vals
+
+        s['secondary'] = secondary_ind_name
+        s['year'] = secondary_ind_year
+        s['company'] = secondary_ind_company
+        return s[['secondary','company','year','vb','b','a','g','vg']]
