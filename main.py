@@ -44,7 +44,7 @@ struct = {'wealth':{
                    }
          }
 
-def basic_to_secondary(year):
+def basic_to_secondary(year, sensitivity_ind, delta):
     print('Starting Basic -> Secondary')
     for primary_indicator in struct.keys():
         frames = []
@@ -53,7 +53,9 @@ def basic_to_secondary(year):
             frames.append(Fuzzification.main(primary_indicator=primary_indicator,
                                              basic_indicators=struct[primary_indicator][secondary_indicator],
                                              indicator_type='basic',
-                                             year=year))
+                                             year=year,
+                                             sensitivity_ind=sensitivity_ind,
+                                             delta=delta))
         secondary_agg = pd.concat(frames).reset_index(drop=True)
         secondary_agg.to_csv('./outputs/annuals/{}_{}_secondary_agg.csv'.format(year,primary_indicator),index=False)
         
@@ -107,7 +109,8 @@ def defuzzification(year):
     crisp = osus[['company','year','crisp']]
     crisp.to_csv('./outputs/annuals/{}_osus_crisp.csv'.format(year),index=False)
 
-def make_final_plot(years):
+def generate_time_series_plot(years = range(2014,2019)):
+    print('GENERATING TIME SERIES CHART')
     frames = [pd.read_csv('./outputs/annuals/{}_osus_crisp.csv'.format(year)) for year in years]
     osus = pd.concat(frames).set_index('year',drop=True)
     osus.index= pd.to_datetime(osus.index.astype(str), format='%Y')
@@ -117,18 +120,37 @@ def make_final_plot(years):
     plt.grid(); plt.xlabel('Year'); plt.ylabel('OSUS');plt.legend(osus.groupby('company').indices)
     fig.savefig('./outputs/final_chart_output.png', dpi=300, bbox_inches='tight')
 
-
+def run_model(years = range(2014,2019), sensitivity_ind=None, delta=0):    
+    print('\n'); print('RUNNING MODEL')
+    for year in years: 
+        print(year)
+        basic_to_secondary(year, sensitivity_ind=sensitivity_ind, delta=delta)
+        secondary_to_primary(year)
+        primary_to_osus(year)
+        defuzzification(year)
+    
+def run_sensitivity_analysis(sensitivity_year = [2018]):
+    """
+    Sensitivity analysis is only run on one year
+    """
+    print('BEGINNING SENSITIVITY ANALYSIS')
+    
+    basic_indicator_list = [] #get a list of the basic indicators
+    for key in struct.keys():
+        for key2 in struct[key].keys():
+             basic_indicator_list =  basic_indicator_list + list(struct[key][key2].keys())
+    
+    for delta in [-0.1, 0.1]: # normalized number purturbation
+        for sensitivity_ind in basic_indicator_list:
+            run_model(years = sensitivity_year, sensitivity_ind = sensitivity_ind, delta=delta)
+    
+    
 if __name__ == '__main__':
-    # print('Creating Normalization Curves')
-    # Fuzzification.create_normalization_curves(struct)
+    #Fuzzification.create_normalization_curves(struct)
     
-    years = range(2014,2019)
-    # for year in years: 
-    #     print('\n'+year)
-    #     basic_to_secondary(year)
-    #     secondary_to_primary(year)
-    #     primary_to_osus(year)
-    #     defuzzification(year)
+    run_sensitivity_analysis()
     
-    make_final_plot(years)
-    print('Finished')
+    #run_model()
+    #generate_time_series_plot()
+    
+    print('COMPLETED')

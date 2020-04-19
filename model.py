@@ -8,7 +8,8 @@ nd = 3
 class Fuzzification:
 
     @classmethod
-    def main(cls,primary_indicator,basic_indicators,indicator_type,year):
+    def main(cls,primary_indicator,basic_indicators,indicator_type,year, sensitivity_ind, delta):       
+        
         wms = cls.wms()
         pi_db = pd.read_excel('./databases/indicator_db.xlsx', sheet_name=primary_indicator).round(nd)
         
@@ -20,12 +21,21 @@ class Fuzzification:
             df_base = pi_db[pi_db[indicator_type]==basic_indicator].drop(['raw_value','raw_value_units','intensive_units','source'],axis='columns').reset_index(drop=True) #reset index so that it concats properly
             z = df_base['intensive_value'].values
             x = s.loc[z] # pass through normalization curve
-            wms_v = wms.loc[x.values].reset_index(); #reset index to make concat work
+            
+            if sensitivity_ind != None: #if its a sensitivity analysis, perturb the normalized value
+                assert delta != 0, 'Something may be wrong, you indicated sensitivity analysis but enterd no perturbation'
+                if basic_indicator == sensitivity_ind:
+                    x = (x + delta).round(nd)
+                    x[x>1]=1 #fix any values that were made greater than 1 or less than 0
+                    x[x<0]=0
+                    print('Perturbed {} by {}'.format(basic_indicator, delta))
+            
+            wms_v = wms.loc[x.values].reset_index(); #fuzzify normalzed values and reset index to make concat work
             df_out = pd.concat([df_base,wms_v],axis='columns')
             assert df_base.shape[0] == df_out.shape[0], 'different amount of rows, error'
             frames.append(df_out)
         fuzz = pd.concat(frames).reset_index(drop=True)
-    
+        
         #INFERENCE
         frames=[]
         for company in fuzz['company'].unique():    
@@ -41,6 +51,7 @@ class Fuzzification:
         """
         Creates normalization curves for ALL data statistically.
         """
+        print('CREATING NORMALIZATION CURVES')
         for primary_indicator in struct.keys():
             pi_db = pd.read_excel('./databases/indicator_db.xlsx', sheet_name=primary_indicator).round(nd)
             for secondary_indicator in struct[primary_indicator].keys():
@@ -271,7 +282,7 @@ class InferenceEngine:
                                   (rb[basic_indicators[2]['basic']] == in3_lv)] #selecting the right row from the rulebase, sensitive to the number of indicators
                         indices.append(rule[secondary_ind_name].iloc[0]) #    
         else:
-            print('WARNING, THER ARE SOME OTHER NUMBER OF BASIC INDICATORS')
+            print('WARNING, THERE ARE SOME OTHER NUMBER OF BASIC INDICATORS')
                 
         s = pd.Series(data=lval,index=indices).round(nd)
         s = s.groupby(s.index).sum() #add up all similar vals
