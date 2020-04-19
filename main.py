@@ -202,15 +202,28 @@ def sensitivity_compile_results(sensitivity_year = [2018]):
         gp['D_rank'] = gp['D'].rank(ascending=False)
         frames.append(gp)   
     df = pd.concat(frames)
-    df.to_csv(os.path.join(annuals_dir,'sensitivity_analysis_rank_stats.csv'))
+    df.to_csv(os.path.join(annuals_dir,'sensitivity_analysis_rank_stats.csv'),index=False)
+
+    # average rank data
+    avg_rank=df[['sensitivity_ind','D_rank']].groupby('sensitivity_ind').mean().sort_values(by='D_rank',ascending=True)
+    avg_rank.to_csv(os.path.join(annuals_dir,'sensitivity_analysis_rank_stats.csv'),index=False)
     
-    #create statistical plot
-    summ = df[(df['D_rank'] == 1) | (df['D_rank'] == 2) | (df['D_rank'] == 3)].sort_values(by=['D_rank'])
-    return df
+    # average rank plot
+    fig, ax = plt.subplots()
+    y_pos = np.arange(len(avg_rank.index))
+    ax.barh(y_pos, avg_rank['D_rank'], align='center')
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(avg_rank.index)
+    ax.invert_yaxis()  # labels read top-to-bottom
+    ax.set_xlabel('Average Rank')
+    ax.set_title('Sensitivity Analysis: Average Basic Indicator Rank')
+    fig.savefig(os.path.join(pkg_dir,'outputs/sensitivity_average_rank_bar_chart.png'), dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    
 
 pkg_dir = 'C:\\Users\\tzave\\OneDrive - The Cooper Union for the Advancement of Science and Art\\102-cooper\\150-masters\\sustainability\\sustainability_project1\\IOU-Sustainability-Model'
 
-annuals_dir = os.path.join(pkg_dir, 'outputs\\annuals')
+annuals_dir = os.path.join(pkg_dir, 'outputs/annuals')
 if not os.path.exists(annuals_dir): os.makedirs(annuals_dir)
 
 norm_dir = os.path.join(pkg_dir, 'outputs/normalization_curves')
