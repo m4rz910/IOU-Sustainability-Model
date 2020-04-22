@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os 
+plt.style.use('seaborn-whitegrid')
 
 dx = 0.001 # dx for linguistic variable function
 nd = 3
@@ -22,8 +23,9 @@ class Fuzzification:
         for basic_indicator in basic_indicators: 
             df = pd.read_csv('./outputs/normalization_curves/{}.csv'.format(basic_indicator)).round(nd)
             s = pd.Series(data=df.iloc[:,1].values,index=df.iloc[:,0].values)
-            df_base = pi_db[pi_db[indicator_type]==basic_indicator].drop(['raw_value','raw_value_units','intensive_units','source'],axis='columns').reset_index(drop=True) #reset index so that it concats properly
+            df_base = pi_db[pi_db[indicator_type]==basic_indicator].drop(['raw_value_units','intensive_units','source'],axis='columns').reset_index(drop=True) #reset index so that it concats properly
             z = df_base['intensive_value'].values
+            
             x = s.loc[z] # pass through normalization curve
             
             if sensitivity_ind != None: #if its a sensitivity analysis, perturb the normalized value
@@ -42,6 +44,9 @@ class Fuzzification:
         if year == 2018: #only have to do this once
             fuzz.to_csv('./outputs/annuals/{}_{}_{}_intensive_normalized_basic_indicators.csv'.format(delta, primary_indicator, secondary_indicator))
         
+        #before inference, fix missing values based on flag in raw data column
+        fuzz = cls.missing_values(fuzz)
+        
         #INFERENCE
         frames=[]
         for company in fuzz['company'].unique():    
@@ -51,6 +56,13 @@ class Fuzzification:
             frames.append(InferenceEngine.b_s(b_indicators)) #apply inference engine
         secondary = pd.DataFrame(frames)
         return secondary
+    
+    @staticmethod
+    def missing_values(in_fuzz):
+        
+        out_fuzz = in_fuzz
+        
+        return out_fuzz
     
     @classmethod
     def create_normalization_curves(cls,struct):
@@ -63,6 +75,7 @@ class Fuzzification:
             for secondary_indicator in struct[primary_indicator].keys():
                 # CONSTRUCT NORMALIZATION CURVES
                 for basic_indicator in struct[primary_indicator][secondary_indicator].keys(): 
+                    #print(secondary_indicator,basic_indicator)
                     assert pi_db[pi_db['basic']==basic_indicator].shape[1] == 9 , 'Warning, not expected shape' #sensitve to number of companies
                     basic_df = pi_db[pi_db['basic']==basic_indicator]
                     iv = basic_df['intensive_value']

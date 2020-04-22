@@ -11,7 +11,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import time
 
+plt.style.use('seaborn-whitegrid')
 plt.rcParams['font.weight'] = 'bold'
 plt.rcParams['font.size'] = 12
 plt.rcParams['axes.labelweight'] = 'bold'
@@ -22,7 +24,7 @@ plt.rcParams['axes.titleweight'] = 'bold'
 struct = {'wealth':{
                     'status':{'roe':'middle_is_better',
                               'roa':'higher_is_better'},
-                    'pressure':{'CF_CAPEX':'higher_is_better',
+                    'pressure':{'cf_capex':'higher_is_better',
                                 'dividend payout ratio':'middle_is_better'}, 
                     'response':{'debt to equity ratio':'middle_is_better',
                                 'operating expenses':'lower_is_better',
@@ -30,7 +32,7 @@ struct = {'wealth':{
                    },
           'ecos':{
                     'air':{'clean generation':'lower_is_better', #bc we want to see a low percentage of coal
-                           'CO2 emissions':'lower_is_better'},
+                           'co2 emissions':'lower_is_better'},
                     'land':{'spills':'lower_is_better',
                             'solid waste':'lower_is_better',
                             'hazardous waste':'lower_is_better'}, 
@@ -127,10 +129,10 @@ def generate_time_series_plot(years = range(2014,2019), delta=0):
     frames = [pd.read_csv(os.path.join(annuals_dir,'{}_{}_{}_osus_crisp.csv'.format(delta,None,year))) for year in years]
     osus = pd.concat(frames).set_index('year',drop=True)
     osus.index= pd.to_datetime(osus.index.astype(str), format='%Y')
-    fig, ax = plt.subplots(figsize=(8,4))
+    fig, ax = plt.subplots(figsize=(10,5))
     for idx, gp in osus.groupby('company'):
         gp.plot(ax=ax,label=idx)
-    plt.grid(); plt.xlabel('Year'); plt.ylabel('OSUS');plt.legend(osus.groupby('company').indices)
+    plt.grid(True); plt.xlabel('Year'); plt.ylabel('OSUS');plt.legend(osus.groupby('company').indices)
     
     out_file = os.path.join(pkg_dir,'outputs/final_chart_output.png') 
     fig.savefig(out_file, dpi=300, bbox_inches='tight')
@@ -139,10 +141,10 @@ def run_model(years = range(2014,2019), sensitivity_ind=None, delta=0):
     print('\n'); print('RUNNING MODEL')
     for year in years: 
         print(year)
-        basic_to_secondary(year, sensitivity_ind=sensitivity_ind, delta=delta)
-        secondary_to_primary(year, sensitivity_ind=sensitivity_ind, delta=delta)
-        primary_to_osus(year, sensitivity_ind=sensitivity_ind, delta=delta)
-        defuzzification(year, sensitivity_ind=sensitivity_ind, delta=delta)
+        basic_to_secondary(year=year, sensitivity_ind=sensitivity_ind, delta=delta)
+        secondary_to_primary(year=year, sensitivity_ind=sensitivity_ind, delta=delta)
+        primary_to_osus(year=year, sensitivity_ind=sensitivity_ind, delta=delta)
+        defuzzification(year=year, sensitivity_ind=sensitivity_ind, delta=delta)
     print('MODEL RUN COMPLETE')
     
 def run_sensitivity_analysis(sensitivity_year = [2018]):
@@ -197,6 +199,7 @@ def sensitivity_compile_results(sensitivity_year = [2018]):
     df3['D_l'] = abs( (1-df3['index']) * (df3[-0.1]-df3['crisp']))
     df3['D'] = df3[['D_h', 'D_l']].max(axis=1)
     
+    #full rank information
     frames = []
     for idx, gp in df3.groupby('company'):
         gp['D_rank'] = gp['D'].rank(ascending=False)
@@ -205,11 +208,11 @@ def sensitivity_compile_results(sensitivity_year = [2018]):
     df.to_csv(os.path.join(annuals_dir,'sensitivity_analysis_rank_stats.csv'),index=False)
 
     # average rank data
-    avg_rank=df[['sensitivity_ind','D_rank']].groupby('sensitivity_ind').mean().sort_values(by='D_rank',ascending=True)
+    avg_rank=df.loc[:,['sensitivity_ind','D_rank']].groupby('sensitivity_ind').mean().sort_values(by='D_rank',ascending=True)
     avg_rank.to_csv(os.path.join(annuals_dir,'sensitivity_analysis_rank_stats.csv'),index=False)
     
     # average rank plot
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(5,10))
     y_pos = np.arange(len(avg_rank.index))
     ax.barh(y_pos, avg_rank['D_rank'], align='center')
     ax.set_yticks(y_pos)
@@ -220,7 +223,6 @@ def sensitivity_compile_results(sensitivity_year = [2018]):
     fig.savefig(os.path.join(pkg_dir,'outputs/sensitivity_average_rank_bar_chart.png'), dpi=300, bbox_inches='tight')
     plt.close(fig)
     
-
 pkg_dir = 'C:\\Users\\tzave\\OneDrive - The Cooper Union for the Advancement of Science and Art\\102-cooper\\150-masters\\sustainability\\sustainability_project1\\IOU-Sustainability-Model'
 
 annuals_dir = os.path.join(pkg_dir, 'outputs/annuals')
@@ -230,11 +232,16 @@ norm_dir = os.path.join(pkg_dir, 'outputs/normalization_curves')
 if not os.path.exists(norm_dir): os.makedirs(norm_dir)
 
 if __name__ == '__main__':
-    #Fuzzification.create_normalization_curves(struct)
-       
-    #run_model()
-    #generate_time_series_plot()
+    tic = time.perf_counter()
     
-    #run_sensitivity_analysis()
+    Fuzzification.create_normalization_curves(struct)
+       
+    run_model()
+    generate_time_series_plot()
+    
+    run_sensitivity_analysis()
     sensitivity_compile_results()
-    print('COMPLETED')
+    
+    toc = time.perf_counter()
+    print('COMPLETED! Duration: {} mins'.format((tic-toc)/60))
+    
