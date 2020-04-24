@@ -162,7 +162,7 @@ def run_sensitivity_analysis(sensitivity_year = [2018]):
         for sensitivity_ind in basic_indicator_list:
             run_model(years = sensitivity_year, sensitivity_ind = sensitivity_ind, delta = delta)
 
-def sensitivity_compile_results(sensitivity_year = [2018]):
+def compile_sensitivity_results(sensitivity_year = [2018]):
     basic_indicator_list = [] #get a list of the basic indicators
     frames = []
     for key in struct.keys():
@@ -205,7 +205,7 @@ def sensitivity_compile_results(sensitivity_year = [2018]):
         gp['D_rank'] = gp['D'].rank(ascending=False)
         frames.append(gp)   
     df = pd.concat(frames)
-    df.to_csv(os.path.join(annuals_dir,'sensitivity_analysis_rank_stats.csv'),index=False)
+    df.to_csv(os.path.join(annuals_dir,'sensitivity_analysis.csv'),index=False)
 
     # average rank data
     avg_rank=df.loc[:,['sensitivity_ind','D_rank']].groupby('sensitivity_ind').mean().sort_values(by='D_rank',ascending=True)
@@ -234,14 +234,12 @@ if not os.path.exists(norm_dir): os.makedirs(norm_dir)
 if __name__ == '__main__':
     tic = time.perf_counter()
     
-    Fuzzification.create_normalization_curves(struct)
+    #Fuzzification.create_normalization_curves(struct)
        
-    run_model()
-    generate_time_series_plot()
+    run_model(); generate_time_series_plot() # BASELINE MODEL
     
-    run_sensitivity_analysis()
-    sensitivity_compile_results()
-    
+    run_sensitivity_analysis(); compile_sensitivity_results() # you must rerun baseline to get accurate sensitivity analysis
+     
     toc = time.perf_counter()
-    print('COMPLETED! Duration: {} mins'.format((tic-toc)/60))
+    print('COMPLETED! Duration: {} mins'.format((toc-tic)/60))
     
