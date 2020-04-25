@@ -59,6 +59,9 @@ class Fuzzification:
     
     @staticmethod
     def missing_values(in_fuzz):
+        """
+        todo: Implement missing values. if a secondary indicator is missing all basic indicator values. apply the missing values method at the second indicator level.
+        """
         
         out_fuzz = in_fuzz
         
@@ -313,7 +316,6 @@ class InferenceEngine:
                 
         s = pd.Series(data=lval,index=indices).round(nd)
         s = s.groupby(s.index).sum() #add up all similar vals
-
         s['secondary'] = secondary_ind_name
         s['year'] = secondary_ind_year
         s['company'] = secondary_ind_company

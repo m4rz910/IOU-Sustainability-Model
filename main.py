@@ -236,9 +236,9 @@ if __name__ == '__main__':
     
     #Fuzzification.create_normalization_curves(struct)
        
-    run_model(); generate_time_series_plot() # BASELINE MODEL
+    run_model(years = [2018]); generate_time_series_plot() # BASELINE MODEL
     
-    run_sensitivity_analysis(); compile_sensitivity_results() # you must rerun baseline to get accurate sensitivity analysis
+    #run_sensitivity_analysis(); compile_sensitivity_results() # you must rerun baseline to get accurate sensitivity analysis
      
     toc = time.perf_counter()
     print('COMPLETED! Duration: {} mins'.format((toc-tic)/60))
